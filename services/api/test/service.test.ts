@@ -504,6 +504,36 @@ describe("Concord", () => {
     expect((await concord.reconcileAction(split.id)).state).toBe("clean");
   });
 
+  it("exports a corporate action's entitlement table as CSV", async () => {
+    const bank = key();
+    const cash = await concord.watchAsset({ network: "testnet", asset: `USDX:${bank}`, fromLedger: 1 });
+    chain.push(cash.id, "transfer", 12, { from: treasury, to: h1, amount: u(9) });
+    chain.push(cash.id, "transfer", 12, { from: treasury, to: h2, amount: u(5) });
+    const action = await concord.createAction("FUND", {
+      type: "dividend",
+      recordTime: at(5),
+      windowTo: at(60),
+      ratePerUnit: "0.1",
+      payAsset: "USDX",
+      payer: treasury,
+    });
+    const rows = concord.exportCsv("FUND", "action", { id: action.id }).trim().split("\n");
+    expect(rows[0]).toBe("address,basis,expected,observed,difference,status,txHashes");
+    expect(rows).toHaveLength(1 + action.result!.lines.length);
+    const line = rows.find((r) => r.startsWith(h1))!;
+    expect(line).toContain(",10,"); // expected 10, observed 9
+    expect(line).toContain(",9,");
+    // The id may also arrive as a query-string value.
+    expect(concord.exportCsv("FUND", "action", { id: String(action.id) })).toBe(
+      concord.exportCsv("FUND", "action", { id: action.id }),
+    );
+
+    expect(() => concord.exportCsv("FUND", "action", { id: 9999 })).toThrow(NotFound);
+    expect(() => concord.exportCsv("FUND", "action")).toThrow(Invalid);
+    // An action of another asset is refused.
+    expect(() => concord.exportCsv("USDX", "action", { id: action.id })).toThrow(NotFound);
+  });
+
   it("reports a pay asset's read-through time from its sync in the same pass", async () => {
     const cash = await concord.watchAsset({ network: "testnet", asset: `USDX:${key()}`, fromLedger: 1 });
     expect(cash.syncedAt ?? null).toBeNull();

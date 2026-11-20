@@ -1729,8 +1729,26 @@ export class Concord {
     return { generatedAt: now(), generator: "concord/0.1.0", sha256: sha256(JSON.stringify(content)), ...content };
   }
 
-  /** One section of the audit pack as CSV. */
-  exportCsv(ref: string, section: string, period: { from?: string; to?: string } = {}): string {
+  /**
+   * One section of the audit pack as CSV. The `action` section is not part of the pack: it is one
+   * corporate action's entitlement table, picked with `id`, with the columns of the dashboard.
+   */
+  exportCsv(ref: string, section: string, period: { from?: string; to?: string; id?: number | string } = {}): string {
+    if (section === "action") {
+      const asset = this.asset(ref);
+      const id = Number(period.id);
+      if (period.id === undefined || period.id === "" || !Number.isInteger(id)) {
+        throw new Invalid("an action id is required");
+      }
+      const row = this.db.get("SELECT asset_id FROM actions WHERE id = ?", id);
+      // An action of another asset is reported as missing, so its existence is not revealed.
+      if (!row || String(row.asset_id) !== String(asset.id)) throw new NotFound(`corporate action ${id} not found`);
+      const lines = this.action(id).result?.lines ?? [];
+      return toCsv(
+        ["address", "basis", "expected", "observed", "difference", "status", "txHashes"],
+        lines.map((l) => ({ ...l, txHashes: Array.isArray(l.txHashes) ? l.txHashes.join(" ") : "" })),
+      );
+    }
     const pack = this.auditExport(ref, period);
     switch (section) {
       case "holdings":
@@ -1781,7 +1799,7 @@ export class Concord {
         );
       }
       default:
-        throw new Invalid("section must be holdings, events, controls or breaks");
+        throw new Invalid("section must be holdings, events, controls, breaks or action");
     }
   }
 }

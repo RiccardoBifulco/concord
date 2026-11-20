@@ -11,7 +11,7 @@ This document describes the audit pack Concord produces for one watched asset: t
 | `GET /api/assets/:id/export?section=<name>`                                 | One CSV section. `<name>` is `holdings`, `events`, `controls` or `breaks`                                     |
 | `concord export ASSET [--from ISO] [--to ISO] [--csv SECTION] [--out FILE]` | The same JSON or CSV from the CLI. With no `--out` it writes to stdout; the file name is whatever you give it |
 
-`from` and `to` are optional query parameters on the API routes and `--from` / `--to` flags on the CLI. An unsupported section is rejected with `section must be holdings, events, controls or breaks`.
+`from` and `to` are optional query parameters on the API routes and `--from` / `--to` flags on the CLI. An unsupported section is rejected with `section must be holdings, events, controls, breaks or action`.
 
 _Source: `services/api/src/api.ts` (export route), `services/api/src/cli.ts` (export command), `services/api/src/concord.ts` (`exportCsv`)._
 
