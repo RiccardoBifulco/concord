@@ -1090,6 +1090,41 @@ describe("Concord", () => {
       }),
     ).rejects.toThrow(`exclude contains an invalid Stellar address: "${invalidAddr}"`);
   });
+
+  it("updateAsset trims names, keeps the old name for blanks, dedupes and bounds ignore lists", () => {
+    const nameError = new Invalid("name must be text of at most 120 characters");
+    const ignoreError = new Invalid("ignore must be a list of addresses");
+
+    // A name is trimmed before it is stored.
+    expect(concord.updateAsset(assetId, { name: "  New  " }).name).toBe("New");
+    expect(concord.asset(assetId).name).toBe("New");
+
+    // A blank name keeps the old one.
+    expect(concord.updateAsset(assetId, { name: "   " }).name).toBe("New");
+    expect(concord.asset(assetId).name).toBe("New");
+
+    // 121 characters is rejected; exactly 120 is stored.
+    expect(() => concord.updateAsset(assetId, { name: "a".repeat(121) })).toThrow(nameError);
+    expect(concord.asset(assetId).name).toBe("New");
+    concord.updateAsset(assetId, { name: "b".repeat(120) });
+    expect(concord.asset(assetId).name).toBe("b".repeat(120));
+
+    // Duplicates and blank entries are dropped.
+    concord.updateAsset(assetId, { ignore: [h1, h1, h2, ""] });
+    expect(concord.asset(assetId).ignore).toEqual([h1, h2]);
+
+    // Exactly 500 entries pass.
+    const many = Array.from({ length: 500 }, () => key());
+    concord.updateAsset(assetId, { ignore: many });
+    expect(concord.asset(assetId).ignore).toEqual(many);
+
+    // Rejected lists leave the stored record untouched.
+    expect(() => concord.updateAsset(assetId, { ignore: [...many, key()] })).toThrow(ignoreError);
+    expect(() => concord.updateAsset(assetId, { ignore: [h1, "x".repeat(81)] })).toThrow(ignoreError);
+    expect(() => concord.updateAsset(assetId, { ignore: h1 as unknown as string[] })).toThrow(ignoreError);
+    expect(concord.asset(assetId).ignore).toEqual(many);
+  });
+
   it("serves the same operations over HTTP, to a signed-in user", async () => {
     const h = harness();
     h.chain.baselineResult = { ledger: 50, openings: new Map() };
