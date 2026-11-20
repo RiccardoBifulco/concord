@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import Ajv from "ajv";
-import { nativeToScVal } from "@stellar/stellar-sdk";
+import { Keypair, StrKey, nativeToScVal } from "@stellar/stellar-sdk";
 import { beforeEach, describe, expect, it } from "vitest";
 import { ChainError, StellarSource, cursorLedger, decodeEvent } from "../src/chain.js";
 import { USAGE } from "../src/cli-usage.js";
@@ -1057,6 +1057,44 @@ describe("Concord", () => {
     await expect(
       concord.watchAsset({ network: "testnet", asset: contractId, decimals: 19, fromLedger: 1 }),
     ).rejects.toThrow(new Invalid("decimals must be 0 to 18"));
+  });
+
+  describe("decimals matrix", () => {
+    const contractId = () => StrKey.encodeContract(Buffer.from(Keypair.random().rawPublicKey()));
+
+    it("reports a contract token that states no decimals", async () => {
+      chain.describe = async () => ({ name: "No Decimals" });
+      await expect(concord.watchAsset({ network: "testnet", asset: contractId(), fromLedger: 1 })).rejects.toThrow(
+        new Invalid("this token does not state its decimals; give them when watching it"),
+      );
+    });
+
+    it.each([0, 18])("accepts and stores decimals %s for a contract token", async (decimals) => {
+      chain.describe = async () => ({ name: "Token" });
+      const watched = await concord.watchAsset({ network: "testnet", asset: contractId(), decimals, fromLedger: 1 });
+      expect(watched.decimals).toBe(decimals);
+      expect(concord.asset(watched.id).decimals).toBe(decimals);
+    });
+
+    it.each([19, -1, 1.5, Number.NaN])("rejects decimals %s for a contract token", async (decimals) => {
+      chain.describe = async () => ({ name: "Token" });
+      await expect(concord.watchAsset({ network: "testnet", asset: contractId(), decimals, fromLedger: 1 })).rejects.toThrow(
+        new Invalid("decimals must be 0 to 18"),
+      );
+    });
+
+    it("rejects out of range decimals that the contract itself reports", async () => {
+      chain.describe = async () => ({ decimals: 19, name: "Token" });
+      await expect(concord.watchAsset({ network: "testnet", asset: contractId(), fromLedger: 1 })).rejects.toThrow(
+        new Invalid("decimals must be 0 to 18"),
+      );
+    });
+
+    it("rejects a classic asset with decimals other than 7", async () => {
+      await expect(
+        concord.watchAsset({ network: "testnet", asset: `DEC3:${key()}`, decimals: 3, fromLedger: 1 }),
+      ).rejects.toThrow(new Invalid("classic assets always carry 7 decimals"));
+    });
   });
 
   it("validates Stellar addresses in ignore and exclude lists", async () => {
