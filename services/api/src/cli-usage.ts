@@ -38,3 +38,48 @@ Operator commands.
 
 ASSET is a code or a contract id. Add --json to most commands for machine-readable output,
 or --help (-h) to see this text. Settings come from the environment; see .env.example.`;
+
+/** Edit distance between two short strings, for "did you mean" suggestions. */
+function distance(a: string, b: string): number {
+  let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    const row = [i];
+    for (let j = 1; j <= b.length; j++) {
+      row[j] = Math.min(prev[j]! + 1, row[j - 1]! + 1, prev[j - 1]! + (a[i - 1] === b[j - 1] ? 0 : 1));
+    }
+    prev = row;
+  }
+  return prev[b.length]!;
+}
+
+/** The known flag closest to `flag` (both with leading dashes), or undefined when nothing is near. */
+export function suggestFlag(flag: string, known: readonly string[]): string | undefined {
+  const name = flag.replace(/^-+/, "");
+  let best: { flag: string; d: number } | undefined;
+  for (const k of known) {
+    const d = distance(name, k);
+    if (!best || d < best.d) best = { flag: k, d };
+  }
+  return best && best.d <= Math.max(2, Math.floor(name.length / 3)) ? `--${best.flag}` : undefined;
+}
+
+/**
+ * Turns a `util.parseArgs` failure into one friendly line, or returns undefined
+ * when the error is not an argument-parsing error.
+ */
+export function usageErrorMessage(err: unknown, known: readonly string[]): string | undefined {
+  const code = (err as { code?: unknown } | null)?.code;
+  if (typeof code !== "string" || !code.startsWith("ERR_PARSE_ARGS_")) return undefined;
+  const text = (err as Error).message;
+  const help = "Run 'concord --help' for usage.";
+  if (code === "ERR_PARSE_ARGS_UNKNOWN_OPTION") {
+    const flag = /Unknown option '([^']+)'/.exec(text)?.[1] ?? "option";
+    const hint = suggestFlag(flag, known);
+    return `unknown option '${flag}'.${hint ? ` Did you mean '${hint}'?` : ""} ${help}`;
+  }
+  if (code === "ERR_PARSE_ARGS_INVALID_OPTION_VALUE") {
+    const flag = /Option '([^']+?)(?: <value>)?[,' ]/.exec(text)?.[1] ?? "option";
+    return `option '${flag}' needs a value. ${help}`;
+  }
+  return `${text.split(/\.\s/)[0]!.replace(/\.$/, "")}. ${help}`;
+}

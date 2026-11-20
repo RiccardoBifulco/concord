@@ -37,6 +37,7 @@ Everything to date; Concord's history begins 2026-10 with the commits below.
 ### Fixed
 
 - Register imports reject as-of times more than five minutes in the future (#100).
+- The CLI prints one friendly line for unknown flags and missing option values, suggests the closest known flag and points at `concord --help` (#581).
 
 ### Added
 

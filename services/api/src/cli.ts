@@ -6,42 +6,44 @@ import { parseArgs } from "node:util";
 import type { ActionInput, Actor, Concord, WatchInput } from "./concord.js";
 import { isNetworkName, loadConfig } from "./config.js";
 import { openRuntime, startServer } from "./main.js";
-import { USAGE } from "./cli-usage.js";
+import { USAGE, usageErrorMessage } from "./cli-usage.js";
 
 function table(rows: Array<Record<string, unknown>>): void {
   if (rows.length === 0) return console.log("(none)");
   console.table(rows);
 }
 
+const OPTIONS = {
+  org: { type: "string" },
+  network: { type: "string" },
+  name: { type: "string" },
+  "no-baseline": { type: "boolean" },
+  from: { type: "string" },
+  to: { type: "string" },
+  ignore: { type: "string" },
+  decimals: { type: "string" },
+  "as-of": { type: "string" },
+  register: { type: "string" },
+  record: { type: "string" },
+  rate: { type: "string" },
+  ratio: { type: "string" },
+  "pay-asset": { type: "string" },
+  payer: { type: "string" },
+  until: { type: "string" },
+  label: { type: "string" },
+  exclude: { type: "string" },
+  csv: { type: "string" },
+  out: { type: "string" },
+  note: { type: "string" },
+  json: { type: "boolean" },
+  help: { type: "boolean", short: "h" },
+} as const;
+
 async function main(): Promise<void> {
   const { positionals, values } = parseArgs({
     args: process.argv.slice(2),
     allowPositionals: true,
-    options: {
-      org: { type: "string" },
-      network: { type: "string" },
-      name: { type: "string" },
-      "no-baseline": { type: "boolean" },
-      from: { type: "string" },
-      to: { type: "string" },
-      ignore: { type: "string" },
-      decimals: { type: "string" },
-      "as-of": { type: "string" },
-      register: { type: "string" },
-      record: { type: "string" },
-      rate: { type: "string" },
-      ratio: { type: "string" },
-      "pay-asset": { type: "string" },
-      payer: { type: "string" },
-      until: { type: "string" },
-      label: { type: "string" },
-      exclude: { type: "string" },
-      csv: { type: "string" },
-      out: { type: "string" },
-      note: { type: "string" },
-      json: { type: "boolean" },
-      help: { type: "boolean", short: "h" },
-    },
+    options: OPTIONS,
   });
   const [command, a, b] = positionals;
   if (!command || values.help) return console.log(USAGE);
@@ -258,6 +260,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((err: Error) => {
-  console.error(err.message);
+  console.error(usageErrorMessage(err, Object.keys(OPTIONS)) ?? err.message);
   process.exit(1);
 });
