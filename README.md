@@ -44,7 +44,8 @@ side comes from the ledger, and the register side is the file you upload. The
 Configuration is by environment variable, or a `.env` file beside `package.json`; see
 [`.env.example`](./.env.example) and [`docs/CONFIGURATION.md`](./docs/CONFIGURATION.md) for every
 variable. With nothing set, mainnet uses free public RPC endpoints, which suit light use; point
-`CONCORD_MAINNET_RPC_URLS` at a provider for anything more. Where the databases live and what is
+`CONCORD_MAINNET_RPC_URLS` at a provider for anything more; [`docs/rpc-providers.md`](./docs/rpc-providers.md)
+walks through keys, failover and checking an endpoint. Where the databases live and what is
 safe to delete: [`docs/data-directory.md`](./docs/data-directory.md). What personal data is
 stored and how to remove it: [`docs/privacy.md`](./docs/privacy.md).
 
