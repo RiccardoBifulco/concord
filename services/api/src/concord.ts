@@ -264,6 +264,15 @@ function toEvent(row: Row): AssetEvent {
  * One workspace: every operation the API and the CLI expose over a single database.
  * Reads the chain, never writes it.
  */
+/** Row counts shown before a destructive CLI command. */
+export interface DeletionCounts {
+  assets: number;
+  events: number;
+  registers: number;
+  runs: number;
+  notes: number;
+}
+
 export class Concord {
   private readonly syncing = new Map<string, Promise<{ added: number }>>();
   /** Current holdings per asset; replaying every event on each dashboard poll is too slow. */
@@ -488,6 +497,24 @@ export class Concord {
       asset.id,
     );
     return this.asset(asset.id);
+  }
+
+  /**
+   * What deleting one asset (or, with no `ref`, the whole workspace) would remove. The CLI shows
+   * this before an irreversible delete; it reads the same tables the cascade clears.
+   */
+  deletionCounts(ref?: string): DeletionCounts {
+    const asset = ref === undefined ? undefined : this.asset(ref);
+    const where = asset ? " WHERE asset_id = ?" : "";
+    const args = asset ? [asset.id] : [];
+    const count = (table: string): number => this.db.get<{ n: number }>(`SELECT COUNT(*) AS n FROM ${table}${where}`, ...args)!.n;
+    return {
+      assets: asset ? 1 : this.db.get<{ n: number }>("SELECT COUNT(*) AS n FROM assets")!.n,
+      events: count("events"),
+      registers: count("registers"),
+      runs: count("runs"),
+      notes: count("break_notes"),
+    };
   }
 
   /** Stop watching: the asset, its events and every book uploaded against it are deleted. */

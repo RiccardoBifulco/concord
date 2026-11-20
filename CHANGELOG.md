@@ -40,6 +40,7 @@ Everything to date; Concord's history begins 2026-10 with the commits below.
 
 ### Added
 
+- `unwatch` and `org-delete` print the counts of what they would delete (assets, events, registers, runs, notes) and need `--yes`, or a typed `yes` at a terminal; without it nothing is deleted and the exit code is 1. `--dry-run` prints only the counts.
 - CSV templates can include one illustrative example row with `?example=1` or `?example=true` (#200).
 - The accounting core (`feat(core)`, `c402eae`): holdings replay from CAP-67 events, position
   and movement reconciliation with typed breaks, corporate-action entitlements (dividend,

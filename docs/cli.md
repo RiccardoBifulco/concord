@@ -63,6 +63,8 @@ error. Positional arguments and options may appear in any order.
 | `--csv <section>` | `export` | Write one section as CSV: `holdings`, `events`, `controls` or `breaks`. |
 | `--out <file>` | `export` | Write to a file instead of standard output. |
 | `--note <text>` | `signup-code` | A note stored with the code. |
+| `--yes`, `-y` | `unwatch`, `org-delete` | Confirm the delete. Without it, a script's run is refused with exit 1 and a terminal is asked. |
+| `--dry-run` | `unwatch`, `org-delete` | Print the counts of what would be deleted and delete nothing. |
 | `--help`, `-h` | any | Print the usage text. |
 
 `--from` means a ledger number for `watch` and an ISO time for `export`.
@@ -116,7 +118,9 @@ On success it prints
 ### `unwatch ASSET`
 
 Stops watching and **deletes the asset and its books** (registers, journal, instructions,
-reconciliation runs, corporate actions, sign-offs). There is no confirmation prompt.
+reconciliation runs, corporate actions, sign-offs). It first prints the counts of what goes
+(assets, events, registers, runs, notes) and needs `--yes`, or a typed `yes` at a terminal.
+Without either it deletes nothing and exits 1. `--dry-run` prints only the counts.
 
 ### `rebuild ASSET`
 
@@ -250,7 +254,8 @@ one day and works once. It fails with `no account for EMAIL` if there is no such
 
 Deletes a workspace, named by id or exact name: its row in `control.db` (and with it its
 memberships and invitations), its database file under `orgs/`, and any account left with no
-workspace. There is no confirmation prompt.
+workspace. Like `unwatch`, it prints the counts first and needs `--yes` (or a typed `yes` at a
+terminal); `--dry-run` prints only the counts.
 
 ### `backup DIR`
 

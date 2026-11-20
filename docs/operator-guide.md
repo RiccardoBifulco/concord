@@ -119,12 +119,14 @@ A table of every workspace: `id` (sixteen hex characters), `name`, `members` (a 
 ### Deleting one
 
 ```sh
-pnpm --silent concord org-delete "Example Customer Ltd"
-pnpm --silent concord org-delete 0123456789abcdef
+pnpm --silent concord org-delete "Example Customer Ltd" --dry-run
+pnpm --silent concord org-delete "Example Customer Ltd" --yes
+pnpm --silent concord org-delete 0123456789abcdef --yes
 ```
 
-The argument is an id or an exact name; a name that matches two workspaces is refused. It asks
-for no confirmation and prints `deleted NAME (ID)` when done. **It cannot be undone.** Take a
+The argument is an id or an exact name; a name that matches two workspaces is refused. It prints
+the counts of what goes and needs `--yes` (or a typed `yes` at a terminal); `--dry-run` prints
+only the counts. It prints `deleted NAME (ID)` when done. **It cannot be undone.** Take a
 backup first:
 
 ```sh

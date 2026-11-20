@@ -10,7 +10,7 @@ Workspace commands. Name the workspace with --org <id | exact name> or CONCORD_O
   watch <CODE:ISSUER | CONTRACT>   start indexing an asset
         [--network mainnet|testnet] [--name N] [--ignore A,B]
         [--from LEDGER] [--no-baseline] [--decimals D]
-  unwatch ASSET                    stop watching; deletes the asset and its books
+  unwatch ASSET [--yes|--dry-run]  stop watching; deletes the asset and its books
   rebuild ASSET                    re-index from fresh opening balances; books stay
   assets                           list watched assets
   sync [ASSET]                     pull new events (every workspace when no --org)
@@ -32,9 +32,10 @@ Operator commands.
   purge-expired                    remove expired identity records
   signup-code [--note TEXT]        a code that lets one new workspace be created (CONCORD_SIGNUP=code)
   reset-link EMAIL                 a one-day link for setting a new password
-  org-delete ORG                   delete a workspace and everything in it
+  org-delete ORG [--yes|--dry-run] delete a workspace and everything in it
   backup DIR                       copy every database to DIR while the server runs
   serve                            run the API and dashboard
 
 ASSET is a code or a contract id. Add --json to most commands for machine-readable output,
-or --help (-h) to see this text. Settings come from the environment; see .env.example.`;
+or --help (-h) to see this text.
+Deleting commands list what goes and need --yes (or a typed yes at a terminal); --dry-run lists only. Settings come from the environment; see .env.example.`;

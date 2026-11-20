@@ -2,8 +2,9 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { userInfo } from "node:os";
 import { join, resolve } from "node:path";
 import { backup } from "node:sqlite";
+import { createInterface } from "node:readline/promises";
 import { parseArgs } from "node:util";
-import type { ActionInput, Actor, Concord, WatchInput } from "./concord.js";
+import type { ActionInput, Actor, Concord, DeletionCounts, WatchInput } from "./concord.js";
 import { isNetworkName, loadConfig } from "./config.js";
 import { openRuntime, startServer } from "./main.js";
 import { USAGE } from "./cli-usage.js";
@@ -40,6 +41,8 @@ async function main(): Promise<void> {
       out: { type: "string" },
       note: { type: "string" },
       json: { type: "boolean" },
+      yes: { type: "boolean", short: "y" },
+      "dry-run": { type: "boolean" },
       help: { type: "boolean", short: "h" },
     },
   });
@@ -59,6 +62,22 @@ async function main(): Promise<void> {
   const out = (value: unknown) => console.log(JSON.stringify(value, null, 2));
   const orgRef = values.org ?? process.env.CONCORD_ORG;
   const workspace = (): Concord => tenants.forOrg(auth.findOrg(need(orgRef, "--org (see `concord orgs`)")).id);
+  /**
+   * Guard for commands that delete data. Prints what would go, then: `--dry-run` stops there,
+   * `--yes` proceeds, a terminal gets a prompt, anything else is refused (exit 1, nothing deleted).
+   */
+  const confirmDelete = async (what: string, c: DeletionCounts): Promise<boolean> => {
+    const summary = `${c.assets} assets, ${c.events} events, ${c.registers} registers, ${c.runs} runs, ${c.notes} notes`;
+    console.log(`${values["dry-run"] ? "would delete" : "this deletes"} ${what}: ${summary}`);
+    if (values["dry-run"]) return false;
+    if (values.yes) return true;
+    if (!process.stdin.isTTY) throw new Error("refusing to delete without confirmation; pass --yes (or --dry-run to preview)");
+    const rl = createInterface({ input: process.stdin, output: process.stdout });
+    const answer = await rl.question("Type yes to continue: ");
+    rl.close();
+    if (answer.trim().toLowerCase() !== "yes") throw new Error("aborted; nothing was deleted");
+    return true;
+  };
   const printRun = (run: Awaited<ReturnType<Concord["reconcile"]>>) => {
     if (values.json) return out(run);
     console.log(`reconciliation ${run.id} · as of ${run.asOf} · ${run.status.toUpperCase()}`);
@@ -94,6 +113,7 @@ async function main(): Promise<void> {
       break;
     case "org-delete": {
       const org = auth.findOrg(need(a, "workspace"));
+      if (!(await confirmDelete(`workspace ${org.name} (${org.id})`, tenants.forOrg(org.id).deletionCounts()))) break;
       auth.deleteOrg(org.id);
       tenants.drop(org.id);
       console.log(`deleted ${org.name} (${org.id})`);
@@ -123,10 +143,14 @@ async function main(): Promise<void> {
       console.log(`watching ${asset.code} (${asset.id}) on ${asset.network} from ledger ${asset.startLedger}; ${added} events indexed`);
       break;
     }
-    case "unwatch":
-      await workspace().unwatchAsset(need(a, "asset"));
+    case "unwatch": {
+      const concord = workspace();
+      const asset = concord.asset(need(a, "asset"));
+      if (!(await confirmDelete(`asset ${asset.code} (${asset.id})`, concord.deletionCounts(asset.id)))) break;
+      await concord.unwatchAsset(asset.id);
       console.log("stopped watching; the asset and its books are deleted");
       break;
+    }
     case "rebuild": {
       const asset = await workspace().rebuild(need(a, "asset"));
       console.log(`rebuilt ${asset.code} from ledger ${asset.startLedger}`);
