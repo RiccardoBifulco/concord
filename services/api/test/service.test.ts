@@ -1059,6 +1059,21 @@ describe("Concord", () => {
     ).rejects.toThrow(new Invalid("decimals must be 0 to 18"));
   });
 
+  it("rejects invalid fromLedger values and accepts 1", async () => {
+    const before = concord.assets("testnet").length;
+    const asset = `LEDG:${key()}`;
+    for (const fromLedger of [0, -5, 1.5, Number.NaN, Number.POSITIVE_INFINITY]) {
+      await expect(concord.watchAsset({ network: "testnet", asset, fromLedger })).rejects.toThrow(
+        new Invalid("fromLedger must be a ledger sequence"),
+      );
+    }
+    expect(concord.assets("testnet")).toHaveLength(before);
+
+    const watched = await concord.watchAsset({ network: "testnet", asset, fromLedger: 1 });
+    expect(watched.startMode).toBe("ledger");
+    expect(concord.assets("testnet")).toHaveLength(before + 1);
+  });
+
   it("validates Stellar addresses in ignore and exclude lists", async () => {
     const validG = key();
     const validC = "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC";
