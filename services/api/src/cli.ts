@@ -39,6 +39,8 @@ async function main(): Promise<void> {
       csv: { type: "string" },
       out: { type: "string" },
       note: { type: "string" },
+      limit: { type: "string" },
+      before: { type: "string" },
       json: { type: "boolean" },
       help: { type: "boolean", short: "h" },
     },
@@ -185,6 +187,21 @@ async function main(): Promise<void> {
     case "instructions":
       out(workspace().importInstructions(need(a, "asset"), readFileSync(need(b, "file"), "utf8")));
       break;
+    case "journal-list": {
+      const entries = workspace().journalEntries(need(a, "asset"), {
+        ...(values.limit ? { limit: Number(values.limit) } : {}),
+        ...(values.before ? { before: values.before } : {}),
+      });
+      if (values.json) return out(entries);
+      table(entries.map((e) => ({ ...e, from: e.from ?? "", to: e.to ?? "", txHash: e.txHash ?? "", status: e.status ?? "" })));
+      break;
+    }
+    case "instructions-list": {
+      const list_ = workspace().instructionList(need(a, "asset"));
+      if (values.json) return out(list_);
+      table(list_.map((i) => ({ ...i, units: i.units ?? "", approvedBy: i.approvedBy ?? "", reason: i.reason ?? "" })));
+      break;
+    }
     case "reconcile":
       printRun(await workspace().reconcile(need(a, "asset"), values.register ? Number(values.register) : undefined, actor));
       break;

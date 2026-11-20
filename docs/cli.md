@@ -169,11 +169,24 @@ Imports the register's transaction journal, a CSV. Always prints JSON: `{"entrie
 replaces the earlier one, so re-importing an overlapping export is safe. A journal makes the
 next reconciliation also compare movements.
 
+### `journal-list ASSET [--limit N] [--before ISO]`
+
+Lists the imported journal entries, newest first: `ref`, `date`, `type`, `from`, `to`, `units`,
+`txHash` and `status`. `status` is `matched` or `unmatched` as of the asset's latest
+reconciliation, and empty when that run did not judge the entry (no run yet, the entry was
+imported after it, or it lies outside the run's window). `--limit` defaults to 100 (maximum
+1000); `--before` keeps entries dated before that time. With `--json` the output is a JSON array.
+
 ### `instructions ASSET FILE`
 
 Imports control instructions, a CSV. Always prints JSON: `{"instructions": N, "issues": [...]}`.
 An instruction with an existing `ref` replaces the earlier one. The controls log matches
 freezes, authorisations and clawbacks against these.
+
+### `instructions-list ASSET`
+
+Lists the imported control instructions, newest first: `ref`, `type`, `account`, `units`,
+`issuedAt`, `approvedBy` and `reason`. With `--json` the output is a JSON array.
 
 ### `reconcile ASSET [--register ID]`
 

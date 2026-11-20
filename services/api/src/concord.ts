@@ -916,6 +916,60 @@ export class Concord {
     });
   }
 
+  /**
+   * The imported journal, newest first. `status` comes from the asset's latest reconciliation:
+   * "matched" when that run paired the entry with a ledger event, "unmatched" when it raised an
+   * UNSETTLED_ENTRY for it, and null when the run did not judge it (no run or journal yet, the
+   * entry was imported afterwards, lies outside the run's window, or is among ignored addresses).
+   * `before` is an exclusive upper bound on the entry date.
+   */
+  journalEntries(ref: string, filter: { limit?: number; before?: string } = {}) {
+    const asset = this.asset(ref);
+    const where = ["asset_id = ?"];
+    const params: Array<string | number> = [asset.id];
+    if (filter.before) {
+      where.push("date < ?");
+      params.push(filter.before);
+    }
+    const limit = Number.isFinite(filter.limit) ? Math.trunc(filter.limit!) : 100;
+    params.push(Math.min(Math.max(limit, 1), 1000));
+    const latest = this.db.get<{ id: number }>("SELECT id FROM runs WHERE asset_id = ? ORDER BY id DESC LIMIT 1", asset.id);
+    const run = latest ? this.run(latest.id) : undefined;
+    const matched = new Set(((run?.movement?.matches ?? []) as Array<{ ref: string }>).map((m) => m.ref));
+    const unmatched = new Set(run?.breaks.filter((b) => b.type === "UNSETTLED_ENTRY" && b.ref).map((b) => b.ref));
+    return this.db
+      .all(`SELECT * FROM journal WHERE ${where.join(" AND ")} ORDER BY date DESC, ref DESC LIMIT ?`, ...params)
+      .map((r) => {
+        const entryRef = String(r.ref);
+        return {
+          ref: entryRef,
+          date: String(r.date),
+          type: String(r.type),
+          from: r.from_addr ? String(r.from_addr) : null,
+          to: r.to_addr ? String(r.to_addr) : null,
+          units: formatUnits(BigInt(String(r.units)), asset.decimals),
+          txHash: r.tx_hash ? String(r.tx_hash) : null,
+          status: matched.has(entryRef) ? "matched" : unmatched.has(entryRef) ? "unmatched" : null,
+        };
+      });
+  }
+
+  /** The imported control instructions, newest first. */
+  instructionList(ref: string) {
+    const asset = this.asset(ref);
+    return this.db
+      .all("SELECT * FROM instructions WHERE asset_id = ? ORDER BY issued_at DESC, ref DESC", asset.id)
+      .map((r) => ({
+        ref: String(r.ref),
+        type: String(r.type),
+        account: String(r.account),
+        units: r.units ? formatUnits(BigInt(String(r.units)), asset.decimals) : null,
+        issuedAt: String(r.issued_at),
+        approvedBy: r.approved_by ? String(r.approved_by) : null,
+        reason: r.reason ? String(r.reason) : null,
+      }));
+  }
+
   importInstructions(ref: string, csv: string) {
     const asset = this.asset(ref);
     let parsed;

@@ -424,6 +424,54 @@ describe("Concord", () => {
     expect(run.breaks[0]).toMatchObject({ scope: "movement", address: h2, chainUnits: "5" });
   });
 
+  it("lists journal entries with their match status from the latest run", async () => {
+    expect(concord.journalEntries("FUND")).toEqual([]);
+    concord.importJournal(
+      "FUND",
+      `ref,date,type,from_account,to_account,units,tx_hash\nJ1,${at(3)},issue,,${h1},100,\nJ2,${at(3)},issue,,${h2},50,\nJ3,${at(10)},transfer,${h1},${h2},10,\nJ4,${at(11)},transfer,${h1},${h2},7,abcd\n`,
+    );
+    // Before any run nothing has been judged.
+    expect(concord.journalEntries("FUND").every((e) => e.status === null)).toBe(true);
+    const reg = concord.importRegister("FUND", { csv: `holder_id,account,units\nA,${h1},90\nB,${h2},55\n`, asOf: at(40) });
+    await concord.reconcile("FUND", reg.registerId);
+
+    const all = concord.journalEntries("FUND");
+    expect(all.map((e) => e.ref)).toEqual(["J4", "J3", "J2", "J1"]);
+    expect(all[0]).toEqual({
+      ref: "J4",
+      date: at(11),
+      type: "transfer",
+      from: h1,
+      to: h2,
+      units: "7",
+      txHash: "abcd",
+      status: "unmatched",
+    });
+    expect(Object.fromEntries(all.map((e) => [e.ref, e.status]))).toEqual({
+      J1: "matched",
+      J2: "matched",
+      J3: "matched",
+      J4: "unmatched",
+    });
+    expect(all.find((e) => e.ref === "J1")).toMatchObject({ from: null, to: h1 });
+    expect(concord.journalEntries("FUND", { limit: 2 }).map((e) => e.ref)).toEqual(["J4", "J3"]);
+    expect(concord.journalEntries("FUND", { before: at(10) }).map((e) => e.ref)).toEqual(["J2", "J1"]);
+    expect(() => concord.journalEntries("NOPE")).toThrow(NotFound);
+  });
+
+  it("lists imported instructions, newest first", () => {
+    expect(concord.instructionList("FUND")).toEqual([]);
+    concord.importInstructions(
+      "FUND",
+      `ref,type,account,units,issued_at,approved_by,reason\nI1,freeze,${h1},,${at(5)},Ann,court order\nI2,clawback,${h2},12,${at(9)},,\n`,
+    );
+    expect(concord.instructionList("FUND")).toEqual([
+      { ref: "I2", type: "clawback", account: h2, units: "12", issuedAt: at(9), approvedBy: null, reason: null },
+      { ref: "I1", type: "freeze", account: h1, units: null, issuedAt: at(5), approvedBy: "Ann", reason: "court order" },
+    ]);
+    expect(() => concord.instructionList("NOPE")).toThrow(NotFound);
+  });
+
   it("leaves journal entries wholly among ignored addresses out of movement matching", async () => {
     chain.push(assetId, "transfer", 15, { from: h2, to: treasury, amount: u(1) });
     concord.importJournal(
