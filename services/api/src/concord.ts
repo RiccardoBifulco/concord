@@ -857,11 +857,15 @@ export class Concord {
       }));
   }
 
-  /** Remove a register, its holder lines and every reconciliation run against it. */
-  deleteRegister(ref: string, registerId: number): void {
+  /** Remove a register, its holder lines and every reconciliation run against it. Returns how many runs went with it. */
+  deleteRegister(ref: string, registerId: number): number {
     const asset = this.asset(ref);
-    const removed = this.db.write("DELETE FROM registers WHERE id = ? AND asset_id = ?", registerId, asset.id);
-    if (removed === 0) throw new NotFound("no such register for this asset");
+    return this.db.tx(() => {
+      const runs = Number(this.db.get<{ n: number }>("SELECT COUNT(*) AS n FROM runs WHERE register_id = ?", registerId)?.n ?? 0);
+      const removed = this.db.write("DELETE FROM registers WHERE id = ? AND asset_id = ?", registerId, asset.id);
+      if (removed === 0) throw new NotFound("no such register for this asset");
+      return runs;
+    });
   }
 
   private registerPositions(registerId: number): RegisterPosition[] {

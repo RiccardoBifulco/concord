@@ -40,6 +40,7 @@ Everything to date; Concord's history begins 2026-10 with the commits below.
 
 ### Added
 
+- `concord registers ASSET [--json]` lists imported registers, and `concord register-delete ASSET ID [--yes]` deletes one after confirmation and reports how many reconciliation runs went with it (#554).
 - CSV templates can include one illustrative example row with `?example=1` or `?example=true` (#200).
 - The accounting core (`feat(core)`, `c402eae`): holdings replay from CAP-67 events, position
   and movement reconciliation with typed breaks, corporate-action entitlements (dividend,

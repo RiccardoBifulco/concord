@@ -2,11 +2,12 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { userInfo } from "node:os";
 import { join, resolve } from "node:path";
 import { backup } from "node:sqlite";
+import { createInterface } from "node:readline/promises";
 import { parseArgs } from "node:util";
 import type { ActionInput, Actor, Concord, WatchInput } from "./concord.js";
 import { isNetworkName, loadConfig } from "./config.js";
 import { openRuntime, startServer } from "./main.js";
-import { USAGE } from "./cli-usage.js";
+import { USAGE, registerDeletedMessage, registerRows } from "./cli-usage.js";
 
 function table(rows: Array<Record<string, unknown>>): void {
   if (rows.length === 0) return console.log("(none)");
@@ -40,6 +41,7 @@ async function main(): Promise<void> {
       out: { type: "string" },
       note: { type: "string" },
       json: { type: "boolean" },
+      yes: { type: "boolean" },
       help: { type: "boolean", short: "h" },
     },
   });
@@ -177,6 +179,29 @@ async function main(): Promise<void> {
         for (const issue of imported.issues) console.log(`  line ${issue.line}: ${issue.message}`);
       }
       printRun((imported.duplicate && concord.latestRunForRegister(imported.registerId)) || (await concord.reconcile(asset, imported.registerId, actor)));
+      break;
+    }
+    case "registers": {
+      const registers = workspace().registers(need(a, "asset"));
+      if (values.json) return out(registers);
+      table(registerRows(registers));
+      break;
+    }
+    case "register-delete": {
+      const concord = workspace();
+      const asset = need(a, "asset");
+      const id = Number(need(b, "register id"));
+      if (!Number.isSafeInteger(id) || id <= 0) throw new Error("register id must be a positive integer");
+      if (!values.yes) {
+        if (!process.stdin.isTTY) throw new Error("refusing to delete without confirmation; pass --yes");
+        const rl = createInterface({ input: process.stdin, output: process.stdout });
+        const answer = await rl.question(`Delete register ${id} of ${asset} and every reconciliation run against it? [y/N] `);
+        rl.close();
+        if (!/^y(es)?$/i.test(answer.trim())) return console.log("cancelled");
+      }
+      const runs = concord.deleteRegister(asset, id);
+      if (values.json) out({ deleted: id, runs });
+      else console.log(registerDeletedMessage(id, runs));
       break;
     }
     case "journal":

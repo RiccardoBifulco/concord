@@ -16,6 +16,8 @@ Workspace commands. Name the workspace with --org <id | exact name> or CONCORD_O
   sync [ASSET]                     pull new events (every workspace when no --org)
   holdings ASSET [--as-of ISO]     on-chain holders
   register ASSET FILE --as-of ISO  import a register export and reconcile it
+  registers ASSET                  list imported registers
+  register-delete ASSET ID [--yes] delete a register and its runs; asks first unless --yes
   journal ASSET FILE               import the register's transaction journal
   instructions ASSET FILE          import control instructions
   reconcile ASSET [--register ID]  re-run a reconciliation
@@ -38,3 +40,30 @@ Operator commands.
 
 ASSET is a code or a contract id. Add --json to most commands for machine-readable output,
 or --help (-h) to see this text. Settings come from the environment; see .env.example.`;
+
+
+/** The rows `concord registers` prints: one per imported register, newest first. */
+export function registerRows(
+  registers: Array<{
+    id: number;
+    asOf: string;
+    source: string;
+    positions: number;
+    issues: unknown[];
+    importedBy: string | null;
+  }>,
+): Array<Record<string, unknown>> {
+  return registers.map((r) => ({
+    id: r.id,
+    asOf: r.asOf,
+    source: r.source,
+    positions: r.positions,
+    rejectedRows: r.issues.length,
+    importer: r.importedBy ?? "",
+  }));
+}
+
+/** What `concord register-delete` reports once a register is gone. */
+export function registerDeletedMessage(registerId: number, runs: number): string {
+  return `deleted register ${registerId} and ${runs} reconciliation run${runs === 1 ? "" : "s"}`;
+}

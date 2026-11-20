@@ -50,6 +50,7 @@ error. Positional arguments and options may appear in any order.
 | `--no-baseline` | `watch` | Do not take opening balances from Horizon; index the retained event window only. |
 | `--decimals <0-18>` | `watch` | Decimals of a contract token that does not state them. Classic assets always have 7. |
 | `--as-of <ISO>` | `holdings`, `register` | Point in time. Required by `register`. |
+| `--yes` | `register-delete` | Skip the confirmation. |
 | `--register <id>` | `reconcile` | Reconcile this register import instead of the latest. |
 | `--record <ISO>` | `action` | Record time: holdings at this instant are the entitlement basis. Required. |
 | `--rate <decimal>` | `action ... dividend` | Pay-asset units per whole unit held. Required for a dividend. |
@@ -78,7 +79,7 @@ A workspace is named by `--org` (its id, or its exact name) or `CONCORD_ORG`. A 
 two workspaces is refused: use the id (`Auth.findOrg`, `services/api/src/auth.ts`).
 
 - **Need a workspace:** `watch`, `unwatch`, `rebuild`, `assets`, `holdings`, `register`,
-  `journal`, `instructions`, `reconcile`, `action`, `actions`, `controls`, `export`.
+  `registers`, `register-delete`, `journal`, `instructions`, `reconcile`, `action`, `actions`, `controls`, `export`.
 - **`sync`:** with an `ASSET`, needs a workspace. With no `ASSET` it syncs every asset in the
   named workspace, or every workspace when none is named (and then also advances any corporate
   action whose record time the indexed chain has passed).
@@ -161,6 +162,18 @@ columns are listed in the README under
 - With `--json` the reconciliation is JSON, but the two lines above still go to standard output
   first, so the output as a whole is not one JSON document. To script a daily run, prefer the
   [pattern below](#daily-reconciliation-from-cron).
+
+### `registers ASSET`
+
+Lists the registers imported for an asset, newest as-of first: id, as-of time, source, positions,
+rejected rows and importer. With `--json`, the full records, including the file's SHA-256 and each
+rejected row.
+
+### `register-delete ASSET ID [--yes]`
+
+Deletes one register, its holder lines and **every reconciliation run against it**, then prints
+how many runs went with it. It asks for confirmation first; `--yes` skips the question, and is
+required when stdin is not a terminal. With `--json`, prints `{"deleted": ID, "runs": N}`.
 
 ### `journal ASSET FILE`
 
@@ -271,6 +284,7 @@ Runs the API and dashboard, the same as `pnpm start` does for the built output.
 | `register` | The reconciliation becomes JSON, but the import summary lines come first as text. |
 | `sync`, `journal`, `instructions` | Always JSON; the flag changes nothing. |
 | `export` | Always JSON unless `--csv`; the flag changes nothing. |
+| `registers`, `register-delete` | Table / text by default; JSON with the flag. |
 | `orgs`, `assets`, `actions` | Always a table. |
 | `watch`, `unwatch`, `rebuild`, `signup-code`, `reset-link`, `org-delete`, `backup` | Always text. |
 
