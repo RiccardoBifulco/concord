@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import Ajv from "ajv";
 import { nativeToScVal } from "@stellar/stellar-sdk";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ChainError, StellarSource, cursorLedger, decodeEvent } from "../src/chain.js";
 import { USAGE } from "../src/cli-usage.js";
 import { Concord, Invalid, NotFound } from "../src/concord.js";
@@ -634,6 +634,14 @@ describe("Concord", () => {
     expect(concord.auditExport("FUND").sha256).toBe(pack.sha256);
     expect(concord.exportCsv("FUND", "controls").split("\n")[0]).toContain("instructionRef");
     expect(concord.exportCsv("FUND", "breaks")).toContain("UNINSTRUCTED_CONTROL");
+  });
+
+  it("rejects an unknown CSV section before building the audit pack", async () => {
+    await concord.sync("FUND");
+    const spy = vi.spyOn(concord, "auditExport");
+    expect(() => concord.exportCsv("FUND", "typo")).toThrow(Invalid);
+    expect(spy).not.toHaveBeenCalled();
+    spy.mockRestore();
   });
 
   it("keeps the audit pack inside the published schema", async () => {

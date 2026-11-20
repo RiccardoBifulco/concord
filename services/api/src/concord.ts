@@ -264,6 +264,8 @@ function toEvent(row: Row): AssetEvent {
  * One workspace: every operation the API and the CLI expose over a single database.
  * Reads the chain, never writes it.
  */
+const CSV_SECTIONS: readonly string[] = ["holdings", "events", "controls", "breaks"];
+
 export class Concord {
   private readonly syncing = new Map<string, Promise<{ added: number }>>();
   /** Current holdings per asset; replaying every event on each dashboard poll is too slow. */
@@ -1731,6 +1733,7 @@ export class Concord {
 
   /** One section of the audit pack as CSV. */
   exportCsv(ref: string, section: string, period: { from?: string; to?: string } = {}): string {
+    if (!CSV_SECTIONS.includes(section)) throw new Invalid("section must be holdings, events, controls or breaks");
     const pack = this.auditExport(ref, period);
     switch (section) {
       case "holdings":
