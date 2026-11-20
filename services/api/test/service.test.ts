@@ -365,6 +365,18 @@ describe("Concord", () => {
     expect(bad.status).toBe(400);
   });
 
+  it("resolves an asset by id or case-insensitive code and refuses an ambiguous or unknown reference", async () => {
+    const created = concord.asset(assetId);
+    expect(concord.asset("FUND")).toEqual(created);
+    expect(concord.asset("fund")).toEqual(created);
+
+    const other = await concord.watchAsset({ network: "testnet", asset: `FUND:${key()}`, fromLedger: 1 });
+    expect(() => concord.asset("FUND")).toThrow(new Invalid("more than one watched asset is called FUND; use its contract id"));
+    expect(concord.asset(created.id).id).toBe(created.id);
+    expect(concord.asset(other.id).id).toBe(other.id);
+    expect(() => concord.asset("NOPE")).toThrow(new NotFound("asset NOPE is not watched"));
+  });
+
   it("rejects a register from another asset and an unknown register id", async () => {
     const reg = concord.importRegister("FUND", { csv: `holder_id,account,units\nA,${h1},90\n`, asOf: at(40) });
     await concord.watchAsset({ network: "testnet", asset: `OTHER:${issuer}`, fromLedger: 1 });
