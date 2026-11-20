@@ -3,7 +3,7 @@ import type { Hono } from "hono";
 import type { AssetEvent, EventKind } from "@concord/core";
 import { createApi, type ApiOptions } from "../src/api.js";
 import { Auth } from "../src/auth.js";
-import type { Baseline, ChainSource, EventPage } from "../src/chain.js";
+import type { AssetDescription, Baseline, ChainSource, EventPage } from "../src/chain.js";
 import type { Networks } from "../src/concord.js";
 import { Db } from "../src/db.js";
 import { CONTROL_MIGRATIONS } from "../src/schema.js";
@@ -72,6 +72,13 @@ export class FakeChain implements ChainSource {
   async baseline(): Promise<Baseline> {
     if (!this.baselineResult) throw new Error("no baseline");
     return this.baselineResult;
+  }
+}
+
+/** A chain whose `describe` finds nothing: the network knows no asset or contract it is asked about. */
+export class UnknownAssetChain extends FakeChain {
+  async describe(): Promise<AssetDescription | undefined> {
+    return undefined;
   }
 }
 

@@ -1,13 +1,13 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import Ajv from "ajv";
-import { nativeToScVal } from "@stellar/stellar-sdk";
+import { StrKey, nativeToScVal } from "@stellar/stellar-sdk";
 import { beforeEach, describe, expect, it } from "vitest";
 import { ChainError, StellarSource, cursorLedger, decodeEvent } from "../src/chain.js";
 import { USAGE } from "../src/cli-usage.js";
 import { Concord, Invalid, NotFound } from "../src/concord.js";
 import { Db } from "../src/db.js";
-import { Client, FakeChain, PASSPHRASE, at, harness, key, u } from "./helpers.js";
+import { Client, FakeChain, PASSPHRASE, UnknownAssetChain, at, harness, key, u } from "./helpers.js";
 
 const validateAuditPack = new Ajv({ allErrors: true, strict: true }).compile(
   JSON.parse(readFileSync(fileURLToPath(new URL("../../../docs/audit-pack.schema.json", import.meta.url)), "utf8")),
@@ -1034,6 +1034,18 @@ describe("Concord", () => {
     expect(rejections).toHaveLength(1);
     expect((rejections[0] as PromiseRejectedResult).reason).toBeInstanceOf(Invalid);
     expect((rejections[0] as PromiseRejectedResult).reason.message).toContain("is already watched");
+  });
+
+  it("rejects assets the network does not know, in classic and contract wording, and stores nothing", async () => {
+    const empty = new Concord(new Db(":memory:"), { testnet: { passphrase: PASSPHRASE, chain: new UnknownAssetChain() } });
+    await expect(empty.watchAsset({ network: "testnet", asset: `FUND:${key()}`, fromLedger: 1 })).rejects.toThrow(
+      new Invalid("testnet has no asset FUND from that issuer"),
+    );
+    const contractId = StrKey.encodeContract(Buffer.alloc(32, 9));
+    await expect(empty.watchAsset({ network: "testnet", asset: contractId, fromLedger: 1 })).rejects.toThrow(
+      new Invalid("testnet has no contract with that id"),
+    );
+    expect(empty.db.get<{ n: number }>("SELECT COUNT(*) AS n FROM assets")!.n).toBe(0);
   });
 
   it("validates decimals for classic and contract assets", async () => {
