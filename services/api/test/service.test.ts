@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import Ajv from "ajv";
-import { nativeToScVal } from "@stellar/stellar-sdk";
+import { StrKey, nativeToScVal } from "@stellar/stellar-sdk";
 import { beforeEach, describe, expect, it } from "vitest";
 import { ChainError, StellarSource, cursorLedger, decodeEvent } from "../src/chain.js";
 import { USAGE } from "../src/cli-usage.js";
@@ -476,6 +476,17 @@ describe("Concord", () => {
     await concord.watchAsset({ network: "testnet", asset: `NAMED:${key()}`, fromLedger: 1 });
     concord.importInstructions("NAMED", `ref,type,account,issued_at\nI-OLD,freeze,${h1},2025-01-01T00:00:00Z\n`);
     expect(concord.controls("NAMED").breaks.map((b) => b.key)).toEqual(["UNEXECUTED_INSTRUCTION:I-OLD"]);
+  });
+
+  it("rejects baseline on a contract token before writing a row, and lets a classic asset opt out", async () => {
+    const contractId = StrKey.encodeContract(Buffer.alloc(32, 7));
+    await expect(
+      concord.watchAsset({ network: "testnet", asset: contractId, baseline: true, decimals: 7 }),
+    ).rejects.toThrow(new Invalid("opening balances are only available for classic assets"));
+    expect(concord.db.get<{ n: number }>("SELECT COUNT(*) AS n FROM assets WHERE id = ?", contractId)!.n).toBe(0);
+
+    const optedOut = await concord.watchAsset({ network: "testnet", asset: `NB:${key()}`, baseline: false });
+    expect(optedOut).toMatchObject({ startMode: "window", state: "ready" });
   });
 
   it("snapshots at the record time and reconciles a dividend paid in another asset", async () => {
