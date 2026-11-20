@@ -6,6 +6,7 @@ import { parseArgs } from "node:util";
 import type { ActionInput, Actor, Concord, WatchInput } from "./concord.js";
 import { isNetworkName, loadConfig } from "./config.js";
 import { openRuntime, startServer } from "./main.js";
+import { exitCodeForRun } from "./cli-exit.js";
 import { USAGE } from "./cli-usage.js";
 
 function table(rows: Array<Record<string, unknown>>): void {
@@ -40,6 +41,7 @@ async function main(): Promise<void> {
       out: { type: "string" },
       note: { type: "string" },
       json: { type: "boolean" },
+      "fail-on-breaks": { type: "boolean" },
       help: { type: "boolean", short: "h" },
     },
   });
@@ -59,7 +61,9 @@ async function main(): Promise<void> {
   const out = (value: unknown) => console.log(JSON.stringify(value, null, 2));
   const orgRef = values.org ?? process.env.CONCORD_ORG;
   const workspace = (): Concord => tenants.forOrg(auth.findOrg(need(orgRef, "--org (see `concord orgs`)")).id);
+  let exitCode = 0;
   const printRun = (run: Awaited<ReturnType<Concord["reconcile"]>>) => {
+    exitCode = exitCodeForRun(run, Boolean(values["fail-on-breaks"]));
     if (values.json) return out(run);
     console.log(`reconciliation ${run.id} · as of ${run.asOf} · ${run.status.toUpperCase()}`);
     for (const w of run.warnings) console.log(`  warning: ${w}`);
@@ -255,6 +259,7 @@ async function main(): Promise<void> {
       throw new Error(`unknown command "${command}"\n\n${USAGE}`);
   }
   runtime.close();
+  process.exitCode = exitCode;
 }
 
 main().catch((err: Error) => {

@@ -42,6 +42,7 @@ error. Positional arguments and options may appear in any order.
 | Option | Used by | Meaning |
 |---|---|---|
 | `--org <id \| name>` | every workspace command | The workspace to act on. Falls back to the `CONCORD_ORG` environment variable. |
+| `--fail-on-breaks` | `reconcile`, `register` | Exit `2` when the reconciliation has open breaks. See [Exit codes](#exit-codes). |
 | `--json` | see [`--json` coverage](#--json-coverage) | Print machine-readable JSON. |
 | `--network mainnet\|testnet` | `watch` | Network of the asset. Defaults to `CONCORD_DEFAULT_NETWORK`, itself defaulting to `mainnet`. |
 | `--name <text>` | `watch` | Display name. Defaults to the asset code. |
@@ -186,7 +187,8 @@ Human output: a header
 breaks (type, subject, chain units, register units, difference, status). With `--json`, the run
 object: `status` is `clean` or `breaks`, with `summary`, `lines`, `movement` and `breaks`.
 
-A reconciliation that finds breaks still exits `0`. See [Exit codes](#exit-codes).
+A reconciliation that finds breaks exits `0`, unless `--fail-on-breaks` is given: then it exits `2`
+when any break is still open. See [Exit codes](#exit-codes).
 
 ### `action ASSET <dividend|split|redemption> --record ISO ...`
 
@@ -276,11 +278,16 @@ Runs the API and dashboard, the same as `pnpm start` does for the built output.
 
 ## Exit codes
 
-There are two. `0` is success; `1` is any error, with the message on standard error. Errors
-include a missing argument or option, an unknown command (the usage text follows the message), a
-workspace or asset that does not exist, a CSV that cannot be read at all, and a Stellar RPC
-failure that stops the command. A command that finds reconciliation breaks still exits `0`, so a
-script that cares has to read the result (`status` in the `--json` output of `reconcile`).
+- `0`: success.
+- `1`: any error, with the message on standard error. Errors include a missing argument or
+  option, an unknown command (the usage text follows the message), a workspace or asset that does
+  not exist, a CSV that cannot be read at all, and a Stellar RPC failure that stops the command.
+- `2`: `reconcile` or `register` was run with `--fail-on-breaks` and the reconciliation has open
+  breaks. Breaks that were acknowledged or resolved do not count as open.
+
+Without `--fail-on-breaks`, a command that finds reconciliation breaks still exits `0`, so a
+script has to read the result (`status` in the `--json` output of `reconcile`). With it, a cron
+job or CI step can tell a clean run (`0`) from one with breaks (`2`) and from a failure (`1`).
 
 ## Daily reconciliation from cron
 
